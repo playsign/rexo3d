@@ -8,8 +8,8 @@ var clock = new THREE.Clock();
 var loadTime = Date.now();
 
 
-//console.log("monkey patching THREE.ImageLoader - replacing THREE.DDSLoader");
-//THREE.ImageLoader = THREE.DDSLoader;
+console.log("monkey patching THREE.ImageLoader - replacing THREE.DDSLoader");
+THREE.ImageLoader = THREE.DDSLoader;
 
 
 function render() {
