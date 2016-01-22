@@ -72,7 +72,9 @@ var App = {
    
     loadObject: function( data ) {
         var loader = new THREE.ObjectLoaderDds();
-        this.scene = loader.parse( data );
+        if (!this.scene)
+            this.scene = new THREE.Scene;
+        this.scene.add(loader.parse( data ));
         
         var hasLights = false;
         
