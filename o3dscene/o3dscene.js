@@ -16,6 +16,7 @@ var App = {
     clock: new THREE.Clock(),    
     orbit: null, /* OrbitControls */
     scene: null,
+    setupLightsDone: false,
     camera: null,
     animation: null,
     container: null,
@@ -48,12 +49,17 @@ var App = {
     },
 
     setupScene: function( result, data ) {
+        if (this.scene)
+            return;
+        console.log("making this.scene");
         this.scene = new THREE.Scene();
         this.scene.add( new THREE.GridHelper( 10, 2.5 ) );
     },
 
     setupLights: function() {
-
+        if (this.setupLightsDone)
+            return;
+        this.setupLightsDone = true;
         var directionalLight = new THREE.DirectionalLight( 0xb8b8b8 );
         directionalLight.position.set(1, 1, 1).normalize();
         directionalLight.intensity = 1.0;
@@ -70,12 +76,18 @@ var App = {
         this.scene.add(directionalLight);
     },
    
-    loadObject: function( data ) {
+    loadObject: function( data, offsetX, offsetY ) {
+        console.log("before loadObject, nr of scene children: " + (this.scene && this.scene.children.length));
         var loader = new THREE.ObjectLoaderDds();
         if (!this.scene)
             this.scene = new THREE.Scene;
-        this.scene.add(loader.parse( data ));
         
+        var obj = loader.parse( data );
+        console.log("setting offsets");
+        obj.position.setZ(offsetY)
+        obj.position.setX(offsetX);
+        this.scene.add(obj);
+        console.log("in loadObject");
         var hasLights = false;
         
         var lights = ['AmbientLight', 'DirectionalLight',
@@ -97,7 +109,6 @@ var App = {
             var cameraIndex = cameras.indexOf( this.scene.children[ i ].type );
             
             if ( cameraIndex > -1 ) {
-                
                 this.setCamera(this.scene.children[ i ]);
                 var container = document.getElementById( 'viewport' );
                 
@@ -118,11 +129,12 @@ var App = {
         this.scene.add( new THREE.GridHelper( 10, 2.5 ) );
         
         this.render();
+        console.log("after loadObject, nr of scene children: " + (this.scene && this.scene.children.length));
 
     },
     
     loadGeometry: function( data, url ) {
-
+        console.log("in loadGeometry");
         var loader = new THREE.JSONLoader();
         var texturePath = loader.extractUrlBase( url );
         data = loader.parse( data, texturePath );
@@ -138,7 +150,7 @@ var App = {
             
             console.log( 'loading animation' );
             data.materials[ 0 ].skinning = true;
-            mesh = new THREE.SkinnedMesh( data.geometry, material, false );
+            mesh = new THREE.Skinnedesh( data.geometry, material, false );
             
             var name = data.geometry.animations[0].name;
             this.animation = new THREE.Animation( mesh, data.geometry.animations[0] );
@@ -185,16 +197,18 @@ var App = {
         this.render();
     },
 
-    loadData: function( data, url ) {
+    loadData: function( data, url, offsetX, offsetY ) {
+        console.log("before loadData, nr of scene children: " + (this.scene && this.scene.children.length));
         if ( data.metadata.type === 'Geometry' ) {
             this.loadGeometry( data, url );
         } else if ( data.metadata.type === 'Object' ) {
-            this.loadObject( data );
+            this.loadObject( data, offsetX, offsetY );
         } else if ( data.metadata.type === 'BufferGeometry' ) {
             this.loadBufferGeometry( data );
         } else {
             console.warn( 'can not determine type' );
         }
+        console.log("after loadData, nr of scene children: " + (this.scene && this.scene.children.length));
     },
 
     ddsLoaderMonkeyPatch: function() {
@@ -210,7 +224,7 @@ var App = {
         THREE.ImageLoader = THREE.OrigImageLoader;
     },
 
-    loadScene: function( url ) {
+    loadScenePrep: function() {
         var div;
         this.container = div = document.createElement( 'div' );
         div.id = 'viewport';
@@ -238,29 +252,20 @@ var App = {
         var thisIsThis = this;
         window.addEventListener(
             'resize', function() { thisIsThis.onWindowResize(); }, false );
-
+    },
+    loadScene: function( url, offsetX, offsetY ) {
+        if (!this.container)
+            this.loadScenePrep();        
         var xhr = new XMLHttpRequest();
+        var thisIsThis = this;
         xhr.onreadystatechange = function ( x ) {
-
             if ( xhr.readyState === xhr.DONE ) {
-
                 if ( xhr.status === 200 || xhr.status === 0  ) {
-                    
-                    // var loadDataLater = function() {
-
-                    //     console.log("delayed loadData");
-                    thisIsThis.loadData( JSON.parse( xhr.responseText ), url );
-                    // };
-                    // window.setTimeout(loadDataLater, 5000);
-
+                    thisIsThis.loadData( JSON.parse( xhr.responseText ), url, offsetX, offsetY );
                 } else {
-
                     console.error( 'could not load json ' + xhr.status );
-
                 }
-
             }
-
         };
         xhr.open( 'GET', url, true );
         xhr.withCredentials = false;
